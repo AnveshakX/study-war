@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import supabase from "@/supabase";
 
-type FeedItem = {
+type StudyEvent = {
   id: number;
   username: string;
+  type: string;
   subject: string;
   topic: string;
   duration: number;
@@ -13,22 +14,22 @@ type FeedItem = {
 };
 
 export default function FeedPage() {
-  const [feed, setFeed] = useState<FeedItem[]>([]);
+  const [events, setEvents] = useState<StudyEvent[]>([]);
 
   useEffect(() => {
     fetchFeed();
 
     const channel = supabase
-      .channel("study-feed")
+      .channel("study_events_feed")
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
-          table: "study_sessions",
+          table: "study_events",
         },
-        () => {
-          fetchFeed();
+        (payload) => {
+          setEvents((prev) => [payload.new as StudyEvent, ...prev]);
         }
       )
       .subscribe();
@@ -39,54 +40,48 @@ export default function FeedPage() {
   }, []);
 
   const fetchFeed = async () => {
-    const { data } = await supabase
-      .from("study_sessions")
+    const { data, error } = await supabase
+      .from("study_events")
       .select("*")
-      .order("created_at", { ascending: false })
-      .limit(20);
+      .order("created_at", { ascending: false });
 
-    if (data) {
-      setFeed(data);
+    if (!error && data) {
+      setEvents(data);
     }
   };
 
-  const formatTime = (seconds: number) => {
+  const formatDuration = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
 
-    if (hrs > 0) return `${hrs}h ${mins}m`;
-    return `${mins}m`;
+    return `${hrs}h ${mins}m`;
   };
 
   return (
-    <main className="min-h-screen bg-black text-white p-8">
-      <h1 className="text-5xl font-bold text-center mb-8">
-        Global Feed 📢
-      </h1>
+    <main className="min-h-screen bg-black text-white px-6 py-10">
+      <h1 className="text-4xl font-bold mb-8">Global Feed 📢</h1>
 
-      <div className="max-w-3xl mx-auto space-y-4">
-        {feed.map((item) => (
+      <div className="flex flex-col gap-4 max-w-2xl mx-auto">
+        {events.map((event) => (
           <div
-            key={item.id}
-            className="bg-gray-900 p-4 rounded-xl"
+            key={event.id}
+            className="bg-zinc-900 p-4 rounded-xl border border-zinc-700"
           >
-            <p className="text-lg">
-              <span className="font-bold text-green-400">
-                {item.username}
-              </span>{" "}
-              studied{" "}
-              <span className="text-blue-400">
-                {item.subject}
-              </span>{" "}
-              ({item.topic}) for{" "}
-              <span className="text-yellow-400">
-                {formatTime(item.duration)}
-              </span>
-            </p>
+            {event.type === "start" && (
+              <p>
+                🔥 <span className="font-bold">{event.username}</span> started{" "}
+                <span className="text-blue-400">{event.subject}</span> —
+                {event.topic}
+              </p>
+            )}
 
-            <p className="text-sm text-gray-400 mt-2">
-              {new Date(item.created_at).toLocaleString()}
-            </p>
+            {event.type === "end" && (
+              <p>
+                ✅ <span className="font-bold">{event.username}</span> finished{" "}
+                <span className="text-green-400">{event.subject}</span> —
+                {event.topic} ({formatDuration(event.duration)})
+              </p>
+            )}
           </div>
         ))}
       </div>

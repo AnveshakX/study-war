@@ -101,9 +101,12 @@ export default function LeaderboardPage() {
             className="flex justify-between items-center bg-gray-900 p-4 rounded-xl"
           >
             <div>
-              <p className="font-bold text-xl">
-                #{index + 1} {user.username}
-              </p>
+              <a
+  href={`/profile/${user.username}`}
+  className="font-bold text-xl hover:text-blue-400"
+>
+  #{index + 1} {user.username}
+</a>
               <p className="text-orange-400">
                 🔥 {user.streak} day streak
               </p>

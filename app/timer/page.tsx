@@ -22,10 +22,21 @@ export default function TimerPage() {
       } = await supabase.auth.getUser();
 
       if (user?.email) {
-        setUsername(user.email.split("@")[0]);
-      } else {
-        router.push("/login");
-      }
+  const { data, error } = await supabase
+    .from("usernames")
+    .select("username")
+    .eq("email", user.email)
+    .single();
+
+  if (data?.username) {
+    setUsername(data.username);
+  } else {
+    setUsername(user.email.split("@")[0]); // fallback
+    console.log("Username not found:", error);
+  }
+} else {
+  router.push("/login");
+}
     };
 
     getUser();

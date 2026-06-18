@@ -5,11 +5,17 @@ import supabase from "@/supabase";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
 
   const signUp = async () => {
+    if (!username || !email || !password) {
+      alert("Fill all fields.");
+      return;
+    }
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -18,6 +24,20 @@ export default function LoginPage() {
     if (error) {
       alert(error.message);
     } else {
+      const { error: usernameError } = await supabase
+        .from("usernames")
+        .insert([
+          {
+            email,
+            username,
+          },
+        ]);
+
+      if (usernameError) {
+        alert("Username already taken.");
+        return;
+      }
+
       alert("Signup successful. Check email.");
     }
   };
@@ -41,6 +61,14 @@ export default function LoginPage() {
       <h1 className="text-5xl font-bold mb-8">Login 🔐</h1>
 
       <div className="flex flex-col gap-4 w-80">
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="p-3 rounded-lg bg-white text-black"
+        />
+
         <input
           type="email"
           placeholder="Email"

@@ -45,14 +45,24 @@ export default function UserProfile({ params }: Props) {
   }, [myUsername]);
 
   const fetchMyUser = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (user?.email) {
-      setMyUsername(user.email.split("@")[0]);
+  if (user?.email) {
+    const { data } = await supabase
+      .from("usernames")
+      .select("username")
+      .eq("email", user.email)
+      .single();
+
+    if (data?.username) {
+      setMyUsername(data.username);
+    } else {
+      setMyUsername(user.email.split("@")[0]); // fallback
     }
-  };
+  }
+};
 
   const fetchUserData = async () => {
     const { data: sessions } = await supabase
