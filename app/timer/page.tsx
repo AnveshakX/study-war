@@ -31,7 +31,7 @@ export default function TimerPage() {
     getUser();
   }, [router]);
 
-  // Timer
+  // Timer logic
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
@@ -44,7 +44,7 @@ export default function TimerPage() {
     return () => clearInterval(interval);
   }, [running]);
 
-  // Random alive check every 20 mins
+  // Random "Still studying?" check every 20 mins
   useEffect(() => {
     if (!running) return;
 
@@ -95,6 +95,7 @@ export default function TimerPage() {
     return () => clearInterval(idleCheck);
   }, [running, lastActivity]);
 
+  // Format timer
   const formatTime = () => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -105,11 +106,8 @@ export default function TimerPage() {
       .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Live study event logging
-  const createEvent = async (
-    type: string,
-    duration = 0
-  ) => {
+  // Create study event
+  const createEvent = async (type: string, duration = 0) => {
     await supabase.from("study_events").insert([
       {
         username,
@@ -121,7 +119,7 @@ export default function TimerPage() {
     ]);
   };
 
-  // Streak logic
+  // Update streak
   const updateStreak = async () => {
     const today = new Date();
     const todayString = today.toISOString().split("T")[0];
@@ -215,13 +213,16 @@ export default function TimerPage() {
           Logout
         </button>
 
-        <input
-          type="text"
-          placeholder="Enter Subject"
+        <select
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           className="p-3 rounded-lg bg-white text-black"
-        />
+        >
+          <option value="">Select Subject</option>
+          <option value="Math">Math</option>
+          <option value="Physics">Physics</option>
+          <option value="Chemistry">Chemistry</option>
+        </select>
 
         <input
           type="text"
@@ -237,17 +238,26 @@ export default function TimerPage() {
       <div className="flex gap-4">
         <button
           onClick={async () => {
-            if (!subject || !topic) {
-              alert("Fill subject and topic first.");
-              return;
-            }
+            if (!running) {
+              if (!subject || !topic) {
+                alert("Fill subject and topic first.");
+                return;
+              }
 
-            setRunning(true);
-            await createEvent("start");
+              setRunning(true);
+
+              if (seconds === 0) {
+                await createEvent("start");
+              }
+            } else {
+              setRunning(false);
+            }
           }}
-          className="bg-green-500 px-6 py-3 rounded-xl font-semibold"
+          className={`px-6 py-3 rounded-xl font-semibold ${
+            running ? "bg-yellow-500" : "bg-green-500"
+          }`}
         >
-          Start
+          {running ? "Pause" : "Start"}
         </button>
 
         <button
