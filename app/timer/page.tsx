@@ -209,10 +209,10 @@ export default function TimerPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4">
-      <h1 className="text-5xl font-bold mb-8">Study Timer ⏳</h1>
+    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4 md:px-8">
+      <h1 className="text-3xl md:text-5xl font-bold mb-8 text-center">Study Timer ⏳</h1>
 
-      <div className="flex flex-col gap-4 mb-8 w-80">
+      <div className="flex flex-col gap-4 mb-8 w-full max-w-sm">
         <p className="text-green-400 text-center">
           Logged in as {username}
         </p>
@@ -244,9 +244,9 @@ export default function TimerPage() {
         />
       </div>
 
-      <div className="text-7xl font-mono mb-8">{formatTime()}</div>
+      <div className="text-5xl md:text-7xl font-mono mb-8 text-center">{formatTime()}</div>
 
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-4 justify-center">
         <button
           onClick={async () => {
             if (!running) {

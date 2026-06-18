@@ -9,6 +9,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  ResponsiveContainer,
 } from "recharts";
 
 type Props = {
@@ -241,9 +242,9 @@ export default function UserProfile({ params }: Props) {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white p-8">
-      <div className="max-w-5xl mx-auto bg-gray-900 rounded-2xl p-8">
-        <h1 className="text-4xl font-bold mb-6 break-words">
+    <main className="min-h-screen bg-black text-white px-4 md:px-8 py-8">
+      <div className="w-full max-w-5xl mx-auto bg-gray-900 rounded-2xl p-4 md:p-8">
+        <h1 className="text-2xl md:text-4xl font-bold mb-6 break-words">
           {username}
         </h1>
 
@@ -259,7 +260,8 @@ export default function UserProfile({ params }: Props) {
           Daily Battle Graph 📈
         </h2>
 
-        <LineChart width={800} height={300} data={dailyChartData}>
+        <ResponsiveContainer width="100%" height={300}>
+  <LineChart data={dailyChartData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="day" />
           <YAxis />
@@ -267,12 +269,14 @@ export default function UserProfile({ params }: Props) {
           <Line type="monotone" dataKey="me" stroke="#00ff00" />
           <Line type="monotone" dataKey="them" stroke="#ff0000" />
         </LineChart>
+        </ResponsiveContainer>
 
         <h2 className="text-2xl font-bold mt-12 mb-4">
           Subject Domination Graph 📚
         </h2>
 
-        <LineChart width={800} height={300} data={subjectChartData}>
+        <ResponsiveContainer width="100%" height={300}>
+  <LineChart data={subjectChartData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="subject" />
           <YAxis />
@@ -280,6 +284,7 @@ export default function UserProfile({ params }: Props) {
           <Line type="monotone" dataKey="me" stroke="#00ff00" />
           <Line type="monotone" dataKey="them" stroke="#ff0000" />
         </LineChart>
+</ResponsiveContainer>
 
         <div className="mt-12 bg-gray-800 p-6 rounded-xl">
           <h2 className="text-2xl font-bold mb-4">
