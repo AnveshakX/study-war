@@ -23,7 +23,8 @@ export default function LeaderboardPage() {
 
     const { data: sessions } = await supabase
       .from("study_sessions")
-      .select("*")
+.select("*")
+.eq("is_running", false)
       .gte("created_at", today.toISOString());
 
     const { data: streaks } = await supabase

@@ -4,6 +4,29 @@ import { useState, useEffect } from "react";
 import supabase from "@/supabase";
 import { useRouter } from "next/navigation";
 
+const quotes = [
+  "No one is coming to save you.",
+  "Your rival is studying right now.",
+  "The pain of discipline is lighter than regret.",
+  "Comfort kills ambition.",
+  "You will either suffer now or suffer later.",
+  "One day or day one. Decide.",
+  "Every wasted hour is someone else’s advantage.",
+  "The future is built in boring hours.",
+  "You don’t get what you wish for. You get what you work for.",
+  "The dream is free. The grind is not.",
+  "Temporary pain. Permanent respect.",
+  "Your family deserves your best version.",
+  "Regret weighs more than effort.",
+  "The weak wait. The strong begin.",
+  "Discipline is self-respect.",
+  "Your excuses are expensive.",
+  "You are being watched by your future self.",
+  "Win in silence.",
+  "The world rewards consistency.",
+  "Nobody remembers average.",
+];
+
 export default function TimerPage() {
   const [username, setUsername] = useState("");
   const [seconds, setSeconds] = useState(0);
@@ -11,10 +34,12 @@ export default function TimerPage() {
   const [subject, setSubject] = useState("");
   const [topic, setTopic] = useState("");
   const [lastActivity, setLastActivity] = useState(Date.now());
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [quoteIndex, setQuoteIndex] = useState(0);
 
   const router = useRouter();
 
-  // Get logged-in user
+  // Get user
   useEffect(() => {
     const getUser = async () => {
       const {
@@ -22,40 +47,77 @@ export default function TimerPage() {
       } = await supabase.auth.getUser();
 
       if (user?.email) {
-  const { data, error } = await supabase
-    .from("usernames")
-    .select("username")
-    .eq("email", user.email)
-    .single();
+        const { data } = await supabase
+          .from("usernames")
+          .select("username")
+          .eq("email", user.email)
+          .single();
 
-  if (data?.username) {
-    setUsername(data.username);
-  } else {
-    setUsername(user.email.split("@")[0]); // fallback
-    console.log("Username not found:", error);
-  }
-} else {
-  router.push("/login");
-}
+        if (data?.username) {
+          setUsername(data.username);
+        } else {
+          setUsername(user.email.split("@")[0]);
+        }
+      } else {
+        router.push("/login");
+      }
     };
 
     getUser();
   }, [router]);
 
-  // Timer logic
+  // Restore active timer
+  useEffect(() => {
+    const restoreTimer = async () => {
+      if (!username) return;
+
+      const { data } = await supabase
+        .from("study_sessions")
+        .select("*")
+        .eq("username", username)
+        .eq("is_running", true)
+        .single();
+
+      if (data) {
+        const started = new Date(data.started_at).getTime();
+        const now = Date.now();
+        const elapsed = Math.floor((now - started) / 1000);
+
+        setSeconds(data.accumulated + elapsed);
+        setStartedAt(started);
+        setRunning(true);
+        setSubject(data.subject);
+        setTopic(data.topic);
+      }
+    };
+
+    restoreTimer();
+  }, [username]);
+
+  // Live ticking
   useEffect(() => {
     let interval: NodeJS.Timeout;
 
-    if (running) {
+    if (running && startedAt) {
       interval = setInterval(() => {
-        setSeconds((prev) => prev + 1);
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        setSeconds(elapsed);
       }, 1000);
     }
 
     return () => clearInterval(interval);
-  }, [running]);
+  }, [running, startedAt]);
 
-  // Random "Still studying?" check every 20 mins
+  // Quote rotation every 90 sec
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteIndex((prev) => (prev + 1) % quotes.length);
+    }, 90000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Anti-cheat check
   useEffect(() => {
     if (!running) return;
 
@@ -63,8 +125,7 @@ export default function TimerPage() {
       const answer = window.confirm("Still studying?");
 
       if (!answer) {
-        setRunning(false);
-        alert("Timer paused.");
+        pauseTimer();
       }
     }, 1200000);
 
@@ -95,8 +156,7 @@ export default function TimerPage() {
         const answer = window.confirm("Slept?? 😴");
 
         if (!answer) {
-          setRunning(false);
-          alert("Timer paused due to inactivity.");
+          pauseTimer();
         } else {
           setLastActivity(Date.now());
         }
@@ -106,7 +166,80 @@ export default function TimerPage() {
     return () => clearInterval(idleCheck);
   }, [running, lastActivity]);
 
-  // Format timer
+  const pauseTimer = async () => {
+    setRunning(false);
+
+    await supabase
+      .from("study_sessions")
+      .update({
+        accumulated: seconds,
+        is_running: false,
+      })
+      .eq("username", username)
+      .eq("is_running", true);
+  };
+
+  const startTimer = async () => {
+    if (!subject || !topic) {
+      alert("Fill subject and topic first.");
+      return;
+    }
+
+    const now = new Date();
+
+    if (!running) {
+      setRunning(true);
+      setStartedAt(Date.now());
+
+      const { data } = await supabase
+        .from("study_sessions")
+        .select("*")
+        .eq("username", username)
+        .eq("is_running", false)
+        .order("id", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data) {
+        await supabase
+          .from("study_sessions")
+          .update({
+            is_running: true,
+            started_at: now.toISOString(),
+          })
+          .eq("id", data.id);
+      } else {
+        await supabase.from("study_sessions").insert([
+          {
+            username,
+            subject,
+            topic,
+            duration: 0,
+            is_running: true,
+            started_at: now.toISOString(),
+            accumulated: 0,
+          },
+        ]);
+      }
+    }
+  };
+
+  const stopAndSave = async () => {
+    setRunning(false);
+
+    await supabase
+      .from("study_sessions")
+      .update({
+        duration: seconds,
+        is_running: false,
+        accumulated: seconds,
+      })
+      .eq("username", username)
+      .eq("is_running", true);
+
+    alert("Study session saved!");
+  };
+
   const formatTime = () => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -117,92 +250,6 @@ export default function TimerPage() {
       .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Create study event
-  const createEvent = async (type: string, duration = 0) => {
-    await supabase.from("study_events").insert([
-      {
-        username,
-        type,
-        subject,
-        topic,
-        duration,
-      },
-    ]);
-  };
-
-  // Update streak
-  const updateStreak = async () => {
-    const today = new Date();
-    const todayString = today.toISOString().split("T")[0];
-
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-    const yesterdayString = yesterday.toISOString().split("T")[0];
-
-    const { data } = await supabase
-      .from("user_streaks")
-      .select("*")
-      .eq("username", username)
-      .single();
-
-    if (!data) {
-      await supabase.from("user_streaks").insert([
-        {
-          username,
-          streak: 1,
-          last_studied: todayString,
-        },
-      ]);
-      return;
-    }
-
-    if (data.last_studied === todayString) return;
-
-    if (data.last_studied === yesterdayString) {
-      await supabase
-        .from("user_streaks")
-        .update({
-          streak: data.streak + 1,
-          last_studied: todayString,
-        })
-        .eq("username", username);
-    } else {
-      await supabase
-        .from("user_streaks")
-        .update({
-          streak: 1,
-          last_studied: todayString,
-        })
-        .eq("username", username);
-    }
-  };
-
-  // Save study session
-  const saveSession = async () => {
-    if (!subject || !topic || seconds === 0) {
-      alert("Fill everything and study first.");
-      return;
-    }
-
-    const { error } = await supabase.from("study_sessions").insert([
-      {
-        username,
-        subject,
-        topic,
-        duration: seconds,
-      },
-    ]);
-
-    if (error) {
-      alert("Error saving session.");
-      console.log(error);
-    } else {
-      await updateStreak();
-      alert("Study session saved!");
-    }
-  };
-
-  // Logout
   const logout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
@@ -210,12 +257,12 @@ export default function TimerPage() {
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-4 md:px-8">
-      <h1 className="text-3xl md:text-5xl font-bold mb-8 text-center">Study Timer ⏳</h1>
+      <h1 className="text-3xl md:text-5xl font-bold mb-8 text-center">
+        Study Timer ⏳
+      </h1>
 
       <div className="flex flex-col gap-4 mb-8 w-full max-w-sm">
-        <p className="text-green-400 text-center">
-          Logged in as {username}
-        </p>
+        <p className="text-green-400 text-center">Logged in as {username}</p>
 
         <button
           onClick={logout}
@@ -244,26 +291,17 @@ export default function TimerPage() {
         />
       </div>
 
-      <div className="text-5xl md:text-7xl font-mono mb-8 text-center">{formatTime()}</div>
+      <div className="text-5xl md:text-7xl font-mono mb-8 text-center">
+        {formatTime()}
+      </div>
+
+      <p className="text-center text-gray-300 italic max-w-xl mb-8 px-4">
+        {quotes[quoteIndex]}
+      </p>
 
       <div className="flex flex-wrap gap-4 justify-center">
         <button
-          onClick={async () => {
-            if (!running) {
-              if (!subject || !topic) {
-                alert("Fill subject and topic first.");
-                return;
-              }
-
-              setRunning(true);
-
-              if (seconds === 0) {
-                await createEvent("start");
-              }
-            } else {
-              setRunning(false);
-            }
-          }}
+          onClick={running ? pauseTimer : startTimer}
           className={`px-6 py-3 rounded-xl font-semibold ${
             running ? "bg-yellow-500" : "bg-green-500"
           }`}
@@ -272,26 +310,10 @@ export default function TimerPage() {
         </button>
 
         <button
-          onClick={async () => {
-            setRunning(false);
-            await createEvent("end", seconds);
-            await saveSession();
-          }}
+          onClick={stopAndSave}
           className="bg-red-500 px-6 py-3 rounded-xl font-semibold"
         >
           Stop & Save
-        </button>
-
-        <button
-          onClick={() => {
-            setRunning(false);
-            setSeconds(0);
-            setSubject("");
-            setTopic("");
-          }}
-          className="bg-gray-500 px-6 py-3 rounded-xl font-semibold"
-        >
-          Reset
         </button>
       </div>
     </main>

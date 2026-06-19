@@ -12,15 +12,36 @@ type UserProfile = {
 
 export default function ProfilesPage() {
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [myUsername, setMyUsername] = useState("");
 
   useEffect(() => {
+    fetchMyUser();
     fetchProfiles();
   }, []);
+
+  const fetchMyUser = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user?.email) {
+      const { data } = await supabase
+        .from("usernames")
+        .select("username")
+        .eq("email", user.email)
+        .single();
+
+      if (data?.username) {
+        setMyUsername(data.username);
+      }
+    }
+  };
 
   const fetchProfiles = async () => {
     const { data: sessions } = await supabase
       .from("study_sessions")
-      .select("*");
+      .select("*")
+      .eq("is_running", false);
 
     const { data: streaks } = await supabase
       .from("user_streaks")
@@ -54,6 +75,34 @@ export default function ProfilesPage() {
     setUsers(sorted);
   };
 
+  const sendChallenge = async (opponent: string) => {
+    if (opponent === myUsername) {
+      alert("You can't challenge yourself.");
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from("rivals")
+      .select("*")
+      .or(
+        `and(challenger.eq.${myUsername},opponent.eq.${opponent}),and(challenger.eq.${opponent},opponent.eq.${myUsername})`
+      );
+
+    if (existing && existing.length > 0) {
+      alert("Rival request already exists.");
+      return;
+    }
+
+    await supabase.from("rivals").insert([
+      {
+        challenger: myUsername,
+        opponent,
+      },
+    ]);
+
+    alert(`Challenge sent to ${opponent} ⚔`);
+  };
+
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -69,26 +118,37 @@ export default function ProfilesPage() {
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {users.map((user, index) => (
-          <Link
+          <div
             key={user.username}
-            href={`/profile/${encodeURIComponent(user.username)}`}
+            className="bg-gray-900 p-6 rounded-2xl"
           >
-            <div className="bg-gray-900 p-6 rounded-2xl hover:bg-gray-800 transition cursor-pointer">
-              <h2 className="text-2xl font-bold mb-2">
-                #{index + 1}
-              </h2>
+            <Link href={`/profile/${encodeURIComponent(user.username)}`}>
+              <div className="cursor-pointer hover:bg-gray-800 transition rounded-xl p-2">
+                <h2 className="text-2xl font-bold mb-2">
+                  #{index + 1}
+                </h2>
 
-              <p className="text-lg break-words">{user.username}</p>
+                <p className="text-lg break-words">{user.username}</p>
 
-              <p className="text-green-400 mt-2">
-                Total: {formatTime(user.total)}
-              </p>
+                <p className="text-green-400 mt-2">
+                  Total: {formatTime(user.total)}
+                </p>
 
-              <p className="text-orange-400">
-                🔥 {user.streak} day streak
-              </p>
-            </div>
-          </Link>
+                <p className="text-orange-400">
+                  🔥 {user.streak} day streak
+                </p>
+              </div>
+            </Link>
+
+            {user.username !== myUsername && (
+              <button
+                onClick={() => sendChallenge(user.username)}
+                className="mt-4 w-full bg-red-500 py-2 rounded-xl font-semibold"
+              >
+                Challenge ⚔
+              </button>
+            )}
+          </div>
         ))}
       </div>
     </main>

@@ -68,7 +68,8 @@ export default function UserProfile({ params }: Props) {
   const fetchUserData = async () => {
     const { data: sessions } = await supabase
       .from("study_sessions")
-      .select("*")
+.select("*")
+.eq("is_running", false)
       .eq("username", username);
 
     const { data: streakData } = await supabase
